@@ -27,9 +27,6 @@ const YogaSection = () => {
       <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
         <div className="text-center mb-16">
-          <span className="inline-block px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-400 text-sm font-semibold mb-4">
-            NEW PROGRAM
-          </span>
           <h2 className="text-3xl md:text-5xl font-bold mb-4">
             <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Yoga</span> Program
           </h2>
@@ -43,7 +40,7 @@ const YogaSection = () => {
           <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 rounded-3xl p-8 text-center">
             <h3 className="text-2xl font-bold mb-2">Monthly Membership</h3>
             <div className="flex items-center justify-center gap-2 mb-4">
-              <span className="text-5xl font-black bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">₹800</span>
+              <span className="text-5xl font-black bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">₹1000</span>
               <span className="text-muted-foreground">/month</span>
             </div>
             <p className="text-muted-foreground mb-6">Start your mindfulness journey today</p>
@@ -109,23 +106,25 @@ const YogaSection = () => {
 
           {/* Batch Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Morning Batch */}
+            {/* Morning Batches */}
             <div className="bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/30 rounded-2xl p-8 text-center group hover:shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all">
               <div className="w-16 h-16 mx-auto bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Sun className="h-8 w-8 text-white" />
               </div>
-              <h4 className="text-2xl font-bold mb-2">Morning Flow</h4>
-              <p className="text-3xl font-black bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent mb-2">5:30 AM – 6:30 AM</p>
+              <h4 className="text-2xl font-bold mb-2">Morning Batches</h4>
+              <p className="text-2xl font-black bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent mb-1">7:00 AM – 8:00 AM</p>
+              <p className="text-2xl font-black bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent mb-2">8:00 AM – 9:00 AM</p>
               <p className="text-muted-foreground">Start your day with energy</p>
             </div>
 
-            {/* Evening Batch */}
+            {/* Evening Batches */}
             <div className="bg-gradient-to-br from-teal-500/20 to-teal-500/5 border border-teal-500/30 rounded-2xl p-8 text-center group hover:shadow-[0_0_30px_rgba(20,184,166,0.3)] transition-all">
               <div className="w-16 h-16 mx-auto bg-gradient-to-br from-teal-500 to-emerald-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Moon className="h-8 w-8 text-white" />
               </div>
-              <h4 className="text-2xl font-bold mb-2">Evening Calm</h4>
-              <p className="text-3xl font-black bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent mb-2">6:30 PM – 7:30 PM</p>
+              <h4 className="text-2xl font-bold mb-2">Evening Batches</h4>
+              <p className="text-2xl font-black bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent mb-1">6:00 PM – 7:00 PM</p>
+              <p className="text-2xl font-black bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent mb-2">7:00 PM – 8:00 PM</p>
               <p className="text-muted-foreground">Unwind after a long day</p>
             </div>
           </div>
