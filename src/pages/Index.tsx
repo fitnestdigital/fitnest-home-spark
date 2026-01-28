@@ -3,6 +3,7 @@ import Hero from "@/components/Hero";
 import WhyFitNest from "@/components/WhyFitNest";
 import WhatIncluded from "@/components/WhatIncluded";
 import BatchTimings from "@/components/BatchTimings";
+import YogaSection from "@/components/YogaSection";
 import CTASection from "@/components/CTASection";
 import Footer from "@/components/Footer";
 
@@ -14,6 +15,7 @@ const Index = () => {
       <WhyFitNest />
       <WhatIncluded />
       <BatchTimings />
+      <YogaSection />
       <CTASection />
       <Footer />
     </div>
