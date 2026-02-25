@@ -859,6 +859,7 @@ async function loadBroadcast(){
 
 // SETTINGS
 let settingLabels = {
+  happy_members:'Happy Members (shown on website)',
   coins_per_attendance:'Coins per Attendance',
   coins_per_water_goal:'Coins per Water Goal',
   coins_per_weight_log:'Coins per Weight Log',
@@ -879,6 +880,14 @@ async function loadSettings(){
       else if(s.key.includes('price')||s.key.includes('trial')||s.key.includes('withdrawal')) grouped.business.push(s);
     });
     grid.innerHTML = `
+      <div class="setting-card">
+        <div class="setting-title">🌐 Website Display</div>
+        ${settings.filter(s=>['happy_members'].includes(s.key)).map(s=>`
+          <div class="setting-row">
+            <span class="setting-key">${settingLabels[s.key]||s.key}</span>
+            <input type="text" class="setting-input" id="setting_${s.key}" value="${s.value}" style="width:130px;">
+          </div>`).join('')}
+      </div>
       <div class="setting-card">
         <div class="setting-title">💰 Business Settings</div>
         ${settings.filter(s=>['monthly_price','trial_days','withdrawal_threshold'].includes(s.key)).map(s=>`
