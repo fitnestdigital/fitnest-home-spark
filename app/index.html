@@ -669,9 +669,7 @@ body.lang-hi .expired-msg,body.lang-gu .expired-msg{font-size:.84rem;line-height
 #appLoader{
   position:fixed;inset:0;background:#000;z-index:9999;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  transition:opacity 0.7s ease;
 }
-#appLoader.out{opacity:0;pointer-events:none;}
 .al-logo{width:110px;opacity:0;transform:scale(0.4);
   animation:alLogoIn 0.9s cubic-bezier(.34,1.56,.64,1) forwards 0.2s;
   filter:drop-shadow(0 0 40px rgba(255,215,0,.7));}
@@ -2304,18 +2302,16 @@ if('serviceWorker' in navigator) {
 // INIT
 // ══════════════════════════════════════════════
 // Dismiss loader after animation completes
-setTimeout(() => {
+function showLoginPage() {
   const loader = document.getElementById('appLoader');
-  if(loader) {
-    loader.classList.add('out');
-    setTimeout(() => {
-      loader.remove();
-      // Make sure login page is visible
-      const lp = document.getElementById('loginPage');
-      if(lp) { lp.style.display = 'flex'; lp.classList.remove('hidden'); }
-    }, 700);
-  }
-}, 2400);
+  const lp = document.getElementById('loginPage');
+  if(loader) loader.style.display = 'none';
+  if(lp) { lp.style.display = 'flex'; lp.classList.remove('hidden'); }
+}
+// Show login after loader animation (2.5s)
+setTimeout(showLoginPage, 2500);
+// Safety fallback: force show login after 4s no matter what
+setTimeout(showLoginPage, 4000);
 
 setLang(lang);
 // Enter key on login
