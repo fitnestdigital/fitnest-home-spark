@@ -723,7 +723,7 @@ body.lang-hi .expired-msg,body.lang-gu .expired-msg{font-size:.84rem;line-height
           <button class="pw-toggle" onclick="togglePw('loginPass',this)">👁</button>
         </div>
       </div>
-      <div class="login-error" id="loginError" id="t_login_error">Invalid email or password</div>
+      <div class="login-error" id="loginError">Invalid email or password</div>
       <button class="btn-gold" id="loginBtn" onclick="doLogin()">
         <span id="t_login_btn">Log In</span>
       </button>
@@ -1280,10 +1280,10 @@ async function doLogin() {
   if(!email || !pass) { showToast('Please enter email and password','error'); return; }
   const btn = document.getElementById('loginBtn');
   btn.disabled = true;
-  btn.textContent = '...';
+  btn.innerHTML = '<span>...</span>';
   const data = await authApi('/token?grant_type=password', {email, password:pass});
   btn.disabled = false;
-  btn.textContent = (STRINGS[lang]||STRINGS.en).login_btn;
+  btn.innerHTML = '<span id="t_login_btn">' + (STRINGS[lang]||STRINGS.en).login_btn + '</span>';
   if(data.access_token) {
     token = data.access_token;
     await loadClientData();
