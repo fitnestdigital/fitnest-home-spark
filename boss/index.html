@@ -1020,7 +1020,7 @@ function openAddClient(){
 }
 async function loadBatchesIntoSelect(selectId){
   try {
-    const batches = await db('batches','GET',null,'?select=*,trainers(name)&status=eq.active');
+    const batches = await db('batches','GET',null,'?select=*,trainers(name)&order=batch_time.asc');
     const sel = document.getElementById(selectId);
     sel.innerHTML = '<option value="">Select batch</option>' +
       batches.map(b=>`<option value="${b.id}">${b.batch_time} — ${b.program} (${b.trainers?.name||''})</option>`).join('');
@@ -1035,70 +1035,66 @@ async function loadTrainersIntoSelect(selectId){
   } catch(e){}
 }
 async function addClient(){
-  const name    = document.getElementById('ac_name').value.trim();
-  const phone   = document.getElementById('ac_phone').value.trim();
-  const email   = document.getElementById('ac_email').value.trim();
-  const password= document.getElementById('ac_password').value.trim();
-  const program = document.getElementById('ac_program').value;
+  const name     = document.getElementById('ac_name').value.trim();
+  const phone    = document.getElementById('ac_phone').value.trim();
+  const email    = document.getElementById('ac_email').value.trim();
+  const password = document.getElementById('ac_password').value.trim();
+  const program  = document.getElementById('ac_program').value;
 
-  if(!name || !phone || !program)   { showToast('Name, phone and program are required','error'); return; }
-  if(!email)                         { showToast('Email is required for client login','error'); return; }
-  if(!password || password.length<6){ showToast('Password must be at least 6 characters','error'); return; }
+  if(!name || !phone || !program)    { showToast('Name, phone and program are required','error'); return; }
+  if(!email)                          { showToast('Email is required for client login','error'); return; }
+  if(!password || password.length<6) { showToast('Password must be at least 6 characters','error'); return; }
 
   const trial_start = document.getElementById('ac_trial_start').value || new Date().toISOString().split('T')[0];
-  const trialEnd    = new Date(trial_start);
+  const trialEnd = new Date(trial_start);
   trialEnd.setDate(trialEnd.getDate() + 5);
-  const trial_end   = trialEnd.toISOString().split('T')[0];
-  const status      = document.getElementById('ac_status').value;
-  const batch_id    = document.getElementById('ac_batch').value || null;
-  const city        = document.getElementById('ac_city').value.trim() || null;
+  const trial_end = trialEnd.toISOString().split('T')[0];
+  const status   = document.getElementById('ac_status').value;
+  const batch_id = document.getElementById('ac_batch').value || null;
+  const city     = document.getElementById('ac_city').value.trim() || null;
 
   const btn = document.querySelector('#addClientModal .btn-gold');
   btn.textContent = 'Creating...';
   btn.disabled = true;
 
   try {
-    // Step 1: Create Supabase Auth account via Admin API
-    const authRes = await fetch(`${SUPA_URL}/auth/v1/admin/users`, {
+    // Step 1: Create Supabase Auth account via public signup (works from browser)
+    const signupRes = await fetch(`${SUPA_URL}/auth/v1/signup`, {
       method: 'POST',
       headers: {
-        'apikey':        SUPA_SERVICE_KEY,
-        'Authorization': 'Bearer ' + SUPA_SERVICE_KEY,
-        'Content-Type':  'application/json'
+        'apikey': SUPA_KEY,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        email,
-        password,
-        email_confirm: true,  // auto-confirm so client can login immediately
-        user_metadata: { name, phone }
-      })
+      body: JSON.stringify({ email, password, data: { name, phone } })
     });
 
-    if (!authRes.ok) {
-      const err = await authRes.json();
-      throw new Error(err.message || 'Auth account creation failed');
+    const signupData = await signupRes.json();
+
+    if (!signupRes.ok || signupData.error) {
+      throw new Error(signupData.error?.message || signupData.msg || 'Account creation failed');
     }
 
-    const authData = await authRes.json();
-    const auth_user_id = authData.id;
+    const auth_user_id = signupData.user?.id || signupData.id;
+    if (!auth_user_id) throw new Error('Could not get user ID from signup');
 
-    // Step 2: Insert into clients table with auth_user_id linked
+    // Step 2: Insert client row linked to auth account
     await db('clients', 'POST', {
       name, phone, email, program,
       city, status, batch_id,
       auth_user_id,
       trial_start,
       trial_end,
-      subscription_end: status === 'active' ? 
+      subscription_end: status === 'active' ?
         new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0] : null,
       coins_balance: 0,
       payment_confirmed: status === 'active',
     });
 
-    showToast(`✅ Client "${name}" added! They can now login with their email and password.`, 'success');
+    showToast(`✅ Client "${name}" added! They can login with their email and password.`, 'success');
     closeModal('addClientModal');
-    // Clear form
-    ['ac_name','ac_phone','ac_email','ac_password','ac_city'].forEach(id => document.getElementById(id).value = '');
+    ['ac_name','ac_phone','ac_email','ac_password','ac_city'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
     loadClients();
 
   } catch(e) {
