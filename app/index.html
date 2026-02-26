@@ -2196,11 +2196,12 @@ function renderNav(name) {
 
 // Touch swipe
 let touchStartX = 0, touchStartY = 0;
-document.getElementById('screensWrap').addEventListener('touchstart', e=>{
+const _sw = document.getElementById('screensWrap');
+if(_sw) _sw.addEventListener('touchstart', e=>{
   touchStartX = e.changedTouches[0].clientX;
   touchStartY = e.changedTouches[0].clientY;
 }, {passive:true});
-document.getElementById('screensWrap').addEventListener('touchend', e=>{
+if(_sw) _sw.addEventListener('touchend', e=>{
   const dx = e.changedTouches[0].clientX - touchStartX;
   const dy = e.changedTouches[0].clientY - touchStartY;
   if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
@@ -2287,6 +2288,17 @@ function animLogin(t){
   requestAnimationFrame(animLogin);
 }
 requestAnimationFrame(animLogin);
+
+// ══════════════════════════════════════════════
+// SERVICE WORKER REGISTRATION
+// ══════════════════════════════════════════════
+if('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/app/sw.js')
+      .then(() => console.log('SW registered'))
+      .catch(e => console.log('SW failed:', e));
+  });
+}
 
 // ══════════════════════════════════════════════
 // INIT
