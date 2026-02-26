@@ -961,11 +961,24 @@ async function confirmPayment(id){
 }
 async function confirmClientPayment(clientId){
   try {
-    await db('payments','POST',{client_id:clientId,amount:1000,confirmed_by_boss:true,confirmed_at:new Date().toISOString(),payment_method:'phonepe',screenshot_received:true});
-    await db('clients','PATCH',{payment_confirmed:true,status:'active',subscription_start:new Date().toISOString().split('T')[0]},`?id=eq.${clientId}`);
-    showToast('Payment confirmed and client activated!','success');
+    const today = new Date();
+    const subEnd = new Date(today);
+    subEnd.setDate(subEnd.getDate() + 30);
+    const subEndStr = subEnd.toISOString().split('T')[0];
+    const todayStr = today.toISOString().split('T')[0];
+    // Update client: activate, set 30-day subscription
+    await db('clients','PATCH',{
+      payment_confirmed: true,
+      status: 'active',
+      subscription_start: todayStr,
+      subscription_end: subEndStr,
+    }, `?id=eq.${clientId}`);
+    showToast(`✅ Payment confirmed! Active until ${subEndStr}`, 'success');
     loadClients();
-  } catch(e){ showToast('Error confirming payment','error'); }
+  } catch(e){
+    console.error('Pay error:', e);
+    showToast('Error: ' + e.message, 'error');
+  }
 }
 async function approveLeave(id, trainerId){
   try {
