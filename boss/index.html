@@ -496,12 +496,12 @@ async function db(table, method='GET', body=null, query=''){
       'apikey': SUPA_KEY,
       'Authorization': `Bearer ${window._token || SUPA_KEY}`,
       'Content-Type': 'application/json',
-      'Prefer': method==='POST'?'return=representation':'',
+      'Prefer': method==='POST'?'return=representation':(method==='PATCH'?'return=representation':''),
     }
   };
   if(body) opts.body = JSON.stringify(body);
   const res = await fetch(url, opts);
-  if(!res.ok){const e=await res.text();throw new Error(e);}
+  if(!res.ok){const e=await res.text();throw new Error(`${res.status}: ${e}`);}
   if(res.status===204) return null;
   return res.json();
 }
@@ -908,72 +908,43 @@ async function loadSettings(){
   } catch(e){ showToast('Error loading settings','error'); }
 }
 async function saveSettings() {
-    const allInputs = document.querySelectorAll('.setting-input');
-    if (allInputs.length === 0) { showToast('No settings found', 'error'); return; }
-    
-    const updates = [];
-    allInputs.forEach(inp => {
-        const key = inp.id.replace('setting_', '');
-        const value = inp.value.trim();
-        if (key && value !== '') {
-            updates.push({ key: key, value: value });
-        }
-    });
+  const allInputs = document.querySelectorAll('.setting-input');
+  if (!allInputs.length) { showToast('No settings found', 'error'); return; }
 
-    if (updates.length === 0) { showToast('Nothing to save', 'error'); return; }
+  const updates = [];
+  allInputs.forEach(inp => {
+    const key = inp.id.replace('setting_', '');
+    const value = inp.value.trim();
+    if (key && value !== '') updates.push({ key, value });
+  });
 
-    showToast('Saving...', 'info');
-    let success = 0;
-    let failed = 0;
+  if (!updates.length) { showToast('Nothing to save', 'error'); return; }
 
-    for (const item of updates) {
-        try {
-            // Use upsert: update if exists, insert if not
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/settings?key=eq.${encodeURIComponent(item.key)}`, {
-                method: 'PATCH',
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_KEY,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=representation'
-                },
-                body: JSON.stringify({ value: item.value })
-            });
-            
-            if (res.status === 404 || res.status === 200 || res.status === 204) {
-                // If PATCH found no rows (returns empty array), do INSERT
-                const data = await res.json().catch(() => []);
-                if (Array.isArray(data) && data.length === 0) {
-                    // Row doesn't exist, insert it
-                    const ins = await fetch(`${SUPABASE_URL}/rest/v1/settings`, {
-                        method: 'POST',
-                        headers: {
-                            'apikey': SUPABASE_KEY,
-                            'Authorization': 'Bearer ' + SUPABASE_KEY,
-                            'Content-Type': 'application/json',
-                            'Prefer': 'return=minimal'
-                        },
-                        body: JSON.stringify({ key: item.key, value: item.value })
-                    });
-                    if (ins.ok || ins.status === 201) { success++; } else { failed++; console.error('Insert failed for', item.key, ins.status); }
-                } else {
-                    success++;
-                }
-            } else {
-                failed++;
-                console.error('PATCH failed for', item.key, res.status, await res.text());
-            }
-        } catch (e) {
-            failed++;
-            console.error('Error saving', item.key, e);
-        }
+  showToast('Saving...', 'info');
+  let ok = 0, fail = 0;
+
+  for (const item of updates) {
+    try {
+      // PATCH using the db() helper which correctly uses window._token (logged-in session)
+      const result = await db('settings', 'PATCH', { value: item.value }, `?key=eq.${encodeURIComponent(item.key)}`);
+      ok++;
+    } catch(e) {
+      // If PATCH fails, try POST (row might not exist)
+      try {
+        await db('settings', 'POST', { key: item.key, value: item.value });
+        ok++;
+      } catch(e2) {
+        fail++;
+        console.error('Failed to save setting:', item.key, e2.message);
+      }
     }
+  }
 
-    if (failed === 0) {
-        showToast(`✅ All ${success} settings saved! Website updates in minutes.`, 'success');
-    } else {
-        showToast(`⚠️ ${success} saved, ${failed} failed. Check console.`, 'error');
-    }
+  if (fail === 0) {
+    showToast(`✅ Saved ${ok} settings! Website will update within 3 minutes.`, 'success');
+  } else {
+    showToast(`⚠️ ${ok} saved, ${fail} failed — run fix_settings.sql in Supabase first`, 'error');
+  }
 }
 
 // ACTIONS
