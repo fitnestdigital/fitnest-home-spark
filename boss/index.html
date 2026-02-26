@@ -406,7 +406,10 @@ tr:hover td{background:rgba(255,255,255,0.02);}
       <div class="form-group"><label>Full Name *</label><input type="text" id="ac_name" placeholder="Client name"></div>
       <div class="form-group"><label>Phone *</label><input type="tel" id="ac_phone" placeholder="+91 99999 99999"></div>
     </div>
-    <div class="form-group"><label>Email</label><input type="email" id="ac_email" placeholder="email@example.com"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Email *</label><input type="email" id="ac_email" placeholder="email@example.com"></div>
+      <div class="form-group"><label>Password *</label><input type="password" id="ac_password" placeholder="Set client password" autocomplete="new-password"></div>
+    </div>
     <div class="form-row">
       <div class="form-group"><label>Program *</label>
         <select id="ac_program"><option value="">Select</option><option value="yoga">Yoga</option><option value="weightloss">Weight Loss</option></select>
@@ -486,6 +489,7 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 <script>
 const SUPA_URL = 'https://woyeqvyoyiroyesiymbo.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndveWVxdnlveWlyb3llc2l5bWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NDU1MDQsImV4cCI6MjA4NzUyMTUwNH0.3hp0O8KAbovDoLerc5yq5JTH91yITNhHPhmm2EvuKRk';
+const SUPA_SERVICE_KEY = 'REPLACE_WITH_SERVICE_ROLE_KEY'; // Supabase → Settings → API → service_role key
 
 // SUPABASE API HELPER
 async function db(table, method='GET', body=null, query=''){
@@ -1031,27 +1035,78 @@ async function loadTrainersIntoSelect(selectId){
   } catch(e){}
 }
 async function addClient(){
-  const name=document.getElementById('ac_name').value.trim();
-  const phone=document.getElementById('ac_phone').value.trim();
-  const program=document.getElementById('ac_program').value;
-  if(!name||!phone||!program){showToast('Fill required fields','error');return;}
-  const trial_start=document.getElementById('ac_trial_start').value;
-  const trial_end=new Date(trial_start);trial_end.setDate(trial_end.getDate()+5);
+  const name    = document.getElementById('ac_name').value.trim();
+  const phone   = document.getElementById('ac_phone').value.trim();
+  const email   = document.getElementById('ac_email').value.trim();
+  const password= document.getElementById('ac_password').value.trim();
+  const program = document.getElementById('ac_program').value;
+
+  if(!name || !phone || !program)   { showToast('Name, phone and program are required','error'); return; }
+  if(!email)                         { showToast('Email is required for client login','error'); return; }
+  if(!password || password.length<6){ showToast('Password must be at least 6 characters','error'); return; }
+
+  const trial_start = document.getElementById('ac_trial_start').value || new Date().toISOString().split('T')[0];
+  const trialEnd    = new Date(trial_start);
+  trialEnd.setDate(trialEnd.getDate() + 5);
+  const trial_end   = trialEnd.toISOString().split('T')[0];
+  const status      = document.getElementById('ac_status').value;
+  const batch_id    = document.getElementById('ac_batch').value || null;
+  const city        = document.getElementById('ac_city').value.trim() || null;
+
+  const btn = document.querySelector('#addClientModal .btn-gold');
+  btn.textContent = 'Creating...';
+  btn.disabled = true;
+
   try {
-    await db('clients','POST',{
-      name,phone,
-      email:document.getElementById('ac_email').value||null,
-      program,
-      city:document.getElementById('ac_city').value||null,
-      status:document.getElementById('ac_status').value,
-      batch_id:document.getElementById('ac_batch').value||null,
-      trial_start,
-      trial_end:trial_end.toISOString().split('T')[0],
+    // Step 1: Create Supabase Auth account via Admin API
+    const authRes = await fetch(`${SUPA_URL}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: {
+        'apikey':        SUPA_SERVICE_KEY,
+        'Authorization': 'Bearer ' + SUPA_SERVICE_KEY,
+        'Content-Type':  'application/json'
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        email_confirm: true,  // auto-confirm so client can login immediately
+        user_metadata: { name, phone }
+      })
     });
-    showToast('Client added!','success');
+
+    if (!authRes.ok) {
+      const err = await authRes.json();
+      throw new Error(err.message || 'Auth account creation failed');
+    }
+
+    const authData = await authRes.json();
+    const auth_user_id = authData.id;
+
+    // Step 2: Insert into clients table with auth_user_id linked
+    await db('clients', 'POST', {
+      name, phone, email, program,
+      city, status, batch_id,
+      auth_user_id,
+      trial_start,
+      trial_end,
+      subscription_end: status === 'active' ? 
+        new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0] : null,
+      coins_balance: 0,
+      payment_confirmed: status === 'active',
+    });
+
+    showToast(`✅ Client "${name}" added! They can now login with their email and password.`, 'success');
     closeModal('addClientModal');
+    // Clear form
+    ['ac_name','ac_phone','ac_email','ac_password','ac_city'].forEach(id => document.getElementById(id).value = '');
     loadClients();
-  } catch(e){ showToast('Error adding client: '+e.message,'error'); }
+
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  } finally {
+    btn.textContent = 'Add Client';
+    btn.disabled = false;
+  }
 }
 function openAddTrainer(){ openModal('addTrainerModal'); }
 async function addTrainer(){
@@ -1110,6 +1165,90 @@ function showToast(msg, type='success'){
 
 // INIT
 setTopbarDate();
+
+async function editClient(clientId) {
+  try {
+    const clients = await db('clients','GET',null,`?id=eq.${clientId}&select=*,batches(batch_time)`);
+    if (!clients || !clients.length) { showToast('Client not found','error'); return; }
+    const c = clients[0];
+
+    // Populate the edit modal
+    document.getElementById('ec_id').value      = c.id;
+    document.getElementById('ec_name').value    = c.name || '';
+    document.getElementById('ec_phone').value   = c.phone || '';
+    document.getElementById('ec_email').value   = c.email || '';
+    document.getElementById('ec_city').value    = c.city || '';
+    document.getElementById('ec_status').value  = c.status || 'trial';
+    document.getElementById('ec_program').value = c.program || 'yoga';
+    document.getElementById('ec_sub_end').value = c.subscription_end || '';
+    document.getElementById('ec_coins').value   = c.coins_balance || 0;
+
+    await loadBatchesIntoSelect('ec_batch');
+    if (c.batch_id) document.getElementById('ec_batch').value = c.batch_id;
+
+    openModal('editClientModal');
+  } catch(e) { showToast('Error loading client: ' + e.message,'error'); }
+}
+
+async function saveEditClient() {
+  const id     = document.getElementById('ec_id').value;
+  const status = document.getElementById('ec_status').value;
+  const subEnd = document.getElementById('ec_sub_end').value;
+
+  try {
+    await db('clients','PATCH',{
+      name:          document.getElementById('ec_name').value.trim(),
+      phone:         document.getElementById('ec_phone').value.trim(),
+      city:          document.getElementById('ec_city').value.trim() || null,
+      status,
+      program:       document.getElementById('ec_program').value,
+      batch_id:      document.getElementById('ec_batch').value || null,
+      subscription_end: subEnd || null,
+      coins_balance: parseInt(document.getElementById('ec_coins').value) || 0,
+      payment_confirmed: status === 'active',
+    }, `?id=eq.${id}`);
+
+    showToast('✅ Client updated!','success');
+    closeModal('editClientModal');
+    loadClients();
+  } catch(e) { showToast('Error: ' + e.message,'error'); }
+}
 </script>
+
+<!-- Edit Client Modal -->
+<div class="modal-overlay" id="editClientModal">
+  <div class="modal">
+    <h3>Edit Client <button class="modal-close" onclick="closeModal('editClientModal')">×</button></h3>
+    <input type="hidden" id="ec_id">
+    <div class="form-row">
+      <div class="form-group"><label>Full Name</label><input type="text" id="ec_name" placeholder="Client name"></div>
+      <div class="form-group"><label>Phone</label><input type="tel" id="ec_phone" placeholder="+91 99999 99999"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Email</label><input type="email" id="ec_email" placeholder="email@example.com" readonly style="opacity:0.5;"></div>
+      <div class="form-group"><label>City</label><input type="text" id="ec_city" placeholder="Ahmedabad"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Program</label>
+        <select id="ec_program"><option value="yoga">Yoga</option><option value="weightloss">Weight Loss</option></select>
+      </div>
+      <div class="form-group"><label>Status</label>
+        <select id="ec_status"><option value="trial">Trial</option><option value="active">Active</option><option value="expired">Expired</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Subscription End</label><input type="date" id="ec_sub_end"></div>
+      <div class="form-group"><label>Coins Balance</label><input type="number" id="ec_coins" value="0" min="0"></div>
+    </div>
+    <div class="form-group"><label>Batch</label>
+      <select id="ec_batch"><option value="">Select batch</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeModal('editClientModal')">Cancel</button>
+      <button class="btn-gold" onclick="saveEditClient()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
