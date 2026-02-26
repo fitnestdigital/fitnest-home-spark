@@ -2251,41 +2251,52 @@ function dismissInstall() {
 
 // ══════════════════════════════════════════════
 // LOGIN PAGE CANVAS ANIMATION
+// Called AFTER loginPage is visible
 // ══════════════════════════════════════════════
-const lc = document.getElementById('loginCanvas');
-const lx = lc.getContext('2d');
-function resizeLc(){ lc.width=innerWidth; lc.height=innerHeight; }
-resizeLc();
-addEventListener('resize', resizeLc, {passive:true});
-const loginParticles = [];
-class LP {
-  constructor(){ this.reset(); this.y=Math.random()*lc.height; }
-  reset(){
-    this.x=Math.random()*lc.width;
-    this.y=lc.height+10;
-    this.vx=(Math.random()-.5)*.4;
-    this.vy=-(Math.random()*.8+.3);
-    this.life=Math.random()*.5+.2;
-    this.decay=.002+Math.random()*.001;
-    this.size=Math.random()*3+1;
-    this.gold=Math.random()>.5;
-  }
-  update(){ this.x+=this.vx; this.y+=this.vy; this.life-=this.decay; if(this.life<=0||this.y<-10)this.reset(); }
-  draw(){
-    lx.save();lx.globalAlpha=this.life*.4;
-    lx.beginPath();lx.arc(this.x,this.y,this.size,0,6.28);
-    const c=this.gold?'#C9A84C':'#FFD700';
-    lx.fillStyle=c;lx.shadowBlur=10;lx.shadowColor=c;lx.fill();lx.restore();
+function initLoginCanvas() {
+  try {
+    const lc = document.getElementById('loginCanvas');
+    if(!lc) return;
+    const lx = lc.getContext('2d');
+    if(!lx) return;
+    function resizeLc(){ lc.width=innerWidth; lc.height=innerHeight; }
+    resizeLc();
+    addEventListener('resize', resizeLc, {passive:true});
+    const loginParticles = [];
+    const PC = isLowEnd ? 15 : 40;
+    for(let i=0;i<PC;i++){
+      loginParticles.push({
+        x:Math.random()*lc.width, y:Math.random()*lc.height,
+        vx:(Math.random()-.5)*.4, vy:-(Math.random()*.8+.3),
+        life:Math.random()*.5+.3, decay:.002+Math.random()*.001,
+        size:Math.random()*3+1, gold:Math.random()>.5
+      });
+    }
+    let lt=0;
+    function animLogin(t){
+      if(t-lt>16){
+        lx.clearRect(0,0,lc.width,lc.height);
+        loginParticles.forEach(p=>{
+          p.x+=p.vx; p.y+=p.vy; p.life-=p.decay;
+          if(p.life<=0||p.y<-10){
+            p.x=Math.random()*lc.width; p.y=lc.height+10;
+            p.vx=(Math.random()-.5)*.4; p.vy=-(Math.random()*.8+.3);
+            p.life=Math.random()*.5+.3; p.decay=.002+Math.random()*.001;
+          }
+          lx.save(); lx.globalAlpha=p.life*.4;
+          lx.beginPath(); lx.arc(p.x,p.y,p.size,0,6.28);
+          const c=p.gold?'#C9A84C':'#FFD700';
+          lx.fillStyle=c; lx.shadowBlur=8; lx.shadowColor=c; lx.fill(); lx.restore();
+        });
+        lt=t;
+      }
+      requestAnimationFrame(animLogin);
+    }
+    requestAnimationFrame(animLogin);
+  } catch(e) {
+    console.log('Canvas init skipped:', e.message);
   }
 }
-const PC = isLowEnd ? 20 : 50;
-for(let i=0;i<PC;i++) loginParticles.push(new LP());
-let lt=0;
-function animLogin(t){
-  if(t-lt>16){ lx.clearRect(0,0,lc.width,lc.height); loginParticles.forEach(p=>{p.update();p.draw();}); lt=t; }
-  requestAnimationFrame(animLogin);
-}
-requestAnimationFrame(animLogin);
 
 // ══════════════════════════════════════════════
 // SERVICE WORKER REGISTRATION
@@ -2302,16 +2313,23 @@ if('serviceWorker' in navigator) {
 // INIT
 // ══════════════════════════════════════════════
 // Dismiss loader after animation completes
+let _loginShown = false;
 function showLoginPage() {
-  const loader = document.getElementById('appLoader');
-  const lp = document.getElementById('loginPage');
-  if(loader) loader.style.display = 'none';
-  if(lp) { lp.style.display = 'flex'; lp.classList.remove('hidden'); }
+  if(_loginShown) return;
+  _loginShown = true;
+  try {
+    const loader = document.getElementById('appLoader');
+    const lp = document.getElementById('loginPage');
+    if(loader) loader.style.display = 'none';
+    if(lp) { lp.style.display = 'flex'; lp.classList.remove('hidden'); }
+    // Init canvas AFTER login page is visible
+    setTimeout(initLoginCanvas, 100);
+  } catch(e) { console.log('showLoginPage error:', e); }
 }
-// Show login after loader animation (2.5s)
+// Show login after loader animation
 setTimeout(showLoginPage, 2500);
-// Safety fallback: force show login after 4s no matter what
-setTimeout(showLoginPage, 4000);
+// Absolute fallback - 5 seconds no matter what
+setTimeout(showLoginPage, 5000);
 
 setLang(lang);
 // Enter key on login
