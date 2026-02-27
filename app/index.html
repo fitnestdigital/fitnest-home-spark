@@ -770,7 +770,7 @@ body.lang-gu{font-family:"Noto Sans Gujarati","DM Sans",sans-serif}
 <script>
 'use strict';
 // ── CONFIG ──
-var SUPA = 'https://woyeqvyoyiroyesiymbo.supabase.co';
+var SUPA = 'https://fitnest-proxy.fitnest-web.workers.dev';
 var KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndveWVxdnlveWlyb3llc2l5bWJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NDU1MDQsImV4cCI6MjA4NzUyMTUwNH0.3hp0O8KAbovDoLerc5yq5JTH91yITNhHPhmm2EvuKRk';
 var WA   = '919173621450';
 var COIN_FREE_DAY = 100;
@@ -919,7 +919,19 @@ async function doLogin() {
   btn.disabled = true;
   btn.innerHTML = '...';
   try {
-    var data = await authCall('/token?grant_type=password', {email: email, password: pass});
+    // Add 15 second timeout to detect Jio DNS issues
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, 15000);
+    var res = await fetch(SUPA + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      signal: controller.signal,
+      headers: { 'apikey': KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: pass })
+    });
+    clearTimeout(timeoutId);
+    var data = await res.json();
     console.log('Auth response:', JSON.stringify(data).substring(0, 200));
     if (data.access_token) {
       token = data.access_token;
@@ -931,7 +943,14 @@ async function doLogin() {
       toast(msg, 'er');
     }
   } catch(e) {
-    var msg = 'Error: ' + e.message;
+    var msg;
+    if (e.name === 'AbortError') {
+      msg = 'Connection timeout. Check your internet or try mobile data.';
+    } else if (e.message && e.message.includes('fetch')) {
+      msg = 'Cannot reach server. Try disabling WiFi and use mobile data.';
+    } else {
+      msg = 'Error: ' + (e.message || 'Unknown error');
+    }
     errEl.textContent = msg;
     errEl.style.display = 'block';
     toast(msg, 'er');
@@ -1623,6 +1642,28 @@ if ('serviceWorker' in navigator) {
 
 // ── INIT ──
 setLang(lang);
+
+// Network connectivity check
+(function checkConn() {
+  var el = document.createElement('div');
+  el.id = 'netStatus';
+  el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:8px;text-align:center;font-size:.72rem;font-weight:600;z-index:999;display:none;';
+  document.body.appendChild(el);
+
+  fetch(SUPA + '/auth/v1/health', {
+    method: 'GET', mode: 'cors', credentials: 'omit',
+    headers: { 'apikey': KEY }
+  }).then(function() {
+    // Connected fine - hide status
+    el.style.display = 'none';
+  }).catch(function() {
+    // Cannot reach Supabase
+    el.style.display = 'block';
+    el.style.background = '#ff4444';
+    el.style.color = '#fff';
+    el.textContent = '⚠️ Cannot reach server. If on Jio WiFi, switch to mobile data or change DNS to 8.8.8.8';
+  });
+})();
 
 // Enter key on login
 document.getElementById('loginPass').addEventListener('keydown', function(e) {
