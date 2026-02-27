@@ -500,7 +500,7 @@ async function db(table, method='GET', body=null, query=''){
       'apikey': SUPA_KEY,
       'Authorization': `Bearer ${window._token || SUPA_KEY}`,
       'Content-Type': 'application/json',
-      'Prefer': method==='POST'?'return=representation':(method==='PATCH'?'return=representation':''),
+      'Prefer': (method==='POST'||method==='PATCH')?'return=representation':'',
     }
   };
   if(body) opts.body = JSON.stringify(body);
@@ -664,6 +664,8 @@ function renderClients(){
         <div style="display:flex;gap:6px;">
           <button class="btn-green btn-sm" onclick="confirmClientPayment('${c.id}')">✓ Pay</button>
           <button class="btn-outline btn-sm" onclick="editClient('${c.id}')">Edit</button>
+          <button class="btn-outline btn-sm" style="color:#4FC3F7;border-color:#4FC3F7" onclick="resetClientPassword('${c.id}','${c.email}')">🔑 Reset</button>
+          <button class="btn-outline btn-sm" style="color:var(--red);border-color:var(--red)" onclick="deleteClient('${c.id}','${c.name}','${c.auth_user_id}')">🗑 Delete</button>
         </div>
       </td>
     </tr>`).join('') :
@@ -959,6 +961,41 @@ async function confirmPayment(id){
     loadCurrentPage();
   } catch(e){ showToast('Error confirming payment','error'); }
 }
+async function deleteClient(id, name, authUserId) {
+  if (!confirm('DELETE ' + name + '?\nThis removes them from the dashboard AND their login account.\nThis cannot be undone.')) return;
+  try {
+    // Delete client row first
+    await db('clients','DELETE',null,'?id=eq.'+id);
+    showToast('✅ ' + name + ' deleted from dashboard', 'success');
+    loadClients();
+    // Note: auth user must be deleted manually from Supabase Auth panel
+    // We cannot delete auth users from browser (requires admin key)
+    if (authUserId) {
+      setTimeout(() => {
+        showToast('⚠️ Also delete their login from Supabase → Authentication → Users → find ' + name, 'error');
+      }, 2000);
+    }
+  } catch(e) { showToast('Error deleting: ' + e.message, 'error'); }
+}
+
+async function resetClientPassword(clientId, email) {
+  if (!email) { showToast('No email for this client', 'error'); return; }
+  if (!confirm('Send password reset email to ' + email + '?')) return;
+  try {
+    const res = await fetch(`${SUPA_URL}/auth/v1/recover`, {
+      method: 'POST',
+      headers: { 'apikey': SUPA_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    });
+    if (res.ok) {
+      showToast('✅ Password reset email sent to ' + email, 'success');
+    } else {
+      const err = await res.json();
+      throw new Error(err.error_description || err.msg || 'Failed to send reset email');
+    }
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
 async function confirmClientPayment(clientId){
   try {
     const today = new Date();
